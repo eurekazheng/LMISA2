@@ -16,8 +16,8 @@ class Generator(Model):
             filters = 2 ** layer * root_filters
             dict_key = str(n_layer - layer - 1)
             if layer == 0:
-               Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
-               self.dw1_layers[dict_key] = Dw1
+                Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
+                self.dw1_layers[dict_key] = Dw1
 
             dw = _DownSampling(filters, kernal_size, 'dw_%d' % layer, use_bn, use_res)
             self.dw_layers[dict_key] = dw
@@ -34,19 +34,25 @@ class Generator(Model):
         stddev = np.sqrt(2 / (kernal_size ** 2 * root_filters))
         # stddev = 0.02
         self.conv_out1 = layers.Conv2D(1, 1, padding=padding, use_bias=False,
-                                      kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
-                                      name='conv_out1')
+                                       kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
+                                       name='conv_out1')
         self.conv_out2 = layers.Conv2D(2, 1, padding=padding, use_bias=False,
-                                      kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
-                                      name='conv_out2')
+                                       kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
+                                       name='conv_out2')
+
+        # sequence of layers for a classificatoin output
+        self.disease_classifer = tf.keras.Sequential([
+            layers.Dense(1024, activation='relu'),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(11)
+        ])
 
         # self.conv_out3 = layers.Conv2D(2048, 1, padding=padding, use_bias=False,
         #                               kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
         #                               name='conv_out3')
 
-
     @tf.function
-    def __call__(self, x_in, dw_tensors=[],z=[] , drop_rate=0, training=False):
+    def __call__(self, x_in, dw_tensors=[], z=[], drop_rate=0, training=False):
         n_layer = len(self.dw_layers)
 
         # if (tf.shape(z)[0] == 0):
@@ -75,14 +81,17 @@ class Generator(Model):
 
         x_o1 = x
         x_o2 = x
-
+        x_disease = tf.reshape(latent, (tf.shape(latent)[0], -1))
         x_o1 = self.conv_out1(x_o1)
-        x1 = tf.nn.leaky_relu(x_o1)
+        x1 = tf.nn.leaky_relu(x_o1)  # reconstructed
 
         x_o2 = self.conv_out2(x_o2)
-        x2 = tf.nn.leaky_relu(x_o2)
+        x2 = tf.nn.leaky_relu(x_o2)  # segmentation
 
-        return x1, latent, x2, dw_tensors
+        x3 = self.disease_classifer(x_disease)
+
+        return x1, latent, x2, dw_tensors, x3
+
 
 class _DownSev(Model):
     def __init__(self, filters, kernel_size, name, use_bn=True, use_res=True, padding='SAME', use_bias=True):
@@ -99,6 +108,7 @@ class _DownSev(Model):
         x = tf.nn.leaky_relu(x)
         return x
 
+
 class Gen_encoder(Model):
     def __init__(self, n_class, n_layer, root_filters, kernal_size=3, pool_size=2, use_bn=True, use_res=True,
                  padding='SAME', concat_or_add='concat'):
@@ -112,15 +122,14 @@ class Gen_encoder(Model):
             filters = 2 ** layer * root_filters
             dict_key = str(n_layer - layer - 1)
             if layer == 0:
-               Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
-               self.dw1_layers[dict_key] = Dw1
+                Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
+                self.dw1_layers[dict_key] = Dw1
 
             dw = _DownSampling(filters, kernal_size, 'dw_%d' % layer, use_bn, use_res)
             self.dw_layers[dict_key] = dw
             if layer < n_layer - 1:
                 pool = layers.MaxPool2D(pool_size, padding=padding)
                 self.max_pools[dict_key] = pool
-
 
     @tf.function
     def __call__(self, x_in, drop_rate=0, training=False):
@@ -138,15 +147,14 @@ class Gen_encoder(Model):
             if i < len(self.max_pools):
                 x = self.max_pools[dict_key](x)
 
-
         return x, dw_tensors
+
 
 class Gen_decoder(Model):
     def __init__(self, n_class, n_layer, root_filters, kernal_size=3, pool_size=2, use_bn=True, use_res=True,
                  padding='SAME', concat_or_add='concat'):
         super().__init__()
         self.up_layers = dict()
-
 
         for layer in range(n_layer - 2, -1, -1):
             filters = 2 ** (layer + 1) * root_filters
@@ -159,7 +167,6 @@ class Gen_decoder(Model):
         self.conv_out = layers.Conv2D(1, 1, padding=padding, use_bias=False,
                                       kernel_initializer=initializers.TruncatedNormal(stddev=stddev),
                                       name='conv_out')
-
 
     @tf.function
     def __call__(self, x_in, dw_tensors, drop_rate=0, training=False):
@@ -175,8 +182,8 @@ class Gen_decoder(Model):
         x = self.conv_out(x)
         xg = tf.nn.leaky_relu(x)
 
-
         return xg
+
 
 class Discriminator(Model):
     def __init__(self, n_class, n_layer, root_filters, kernal_size=3, pool_size=2, use_bn=True, use_res=True,
@@ -191,8 +198,8 @@ class Discriminator(Model):
             filters = 2 ** layer * root_filters
             dict_key = str(n_layer - layer - 1)
             if layer == 0:
-               Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
-               self.dw1_layers[dict_key] = Dw1
+                Dw1 = _DownSev(filters, 7, 'dw1_%d' % layer)
+                self.dw1_layers[dict_key] = Dw1
 
             dw = _DownSampling_disc(filters, kernal_size, 'dw_%d' % layer, use_bn, use_res)
             self.dw_layers[dict_key] = dw
@@ -221,12 +228,11 @@ class Discriminator(Model):
             if i < len(self.max_pools):
                 x = self.max_pools[dict_key](x)
 
-
         x = self.conv_out(x)
         xg = tf.nn.leaky_relu(x)
 
-
         return xg
+
 
 class _DownSampling_disc(Model):
     def __init__(self, filters, kernel_size, name, use_bn=True, use_res=True, padding='SAME', use_bias=False):
@@ -248,6 +254,7 @@ class _DownSampling_disc(Model):
         x = tf.nn.leaky_relu(x)
 
         return x
+
 
 class _DownSampling(Model):
     def __init__(self, filters, kernel_size, name, use_bn=True, use_res=True, padding='SAME', use_bias=False):
@@ -290,13 +297,12 @@ class _DownSampling(Model):
 
         x = x + x1 + x_in
         if self.use_res:
-           x = self.res(x_in, x)
+            x = self.res(x_in, x)
         x = tf.nn.leaky_relu(x)
 
         x = tf.concat((x, x_in), -1)
 
         return x
-
 
 
 class _UpSampling(Model):
@@ -358,7 +364,7 @@ class _UpSampling(Model):
         if self.use_bn:
             x = self.bn2(x, training=training)
         if self.use_res:
-           x = self.res(res_in, x)
+            x = self.res(res_in, x)
         x3 = self.conv3(res_in)
         if self.use_bn:
             x3 = self.bn3(x3, training=training)
@@ -380,4 +386,3 @@ class _Residual(Model):
             x = x1[..., :x2.shape[-1]]
         x = x + x2
         return x
-

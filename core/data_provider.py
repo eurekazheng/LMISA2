@@ -9,6 +9,8 @@ from utils import data_loader as L
 from utils import util as U
 from scipy import ndimage
 import cv2
+
+
 class DataProvider:
     """Callable data provider. 
 
@@ -43,16 +45,17 @@ class DataProvider:
         Dict of ndarray that corresponds to the data when preloaded data is selected.
     _cur_i: int
         Current index for cycle.
-    
+
     """
+
     def __init__(self,
-                data,
-                data_suffix ,
-                processor=None,
-                temp_dir=None,
-                is_pre_load=False,
-                is_shuffle=False,
-                is_aug=False):
+                 data,
+                 data_suffix,
+                 processor=None,
+                 temp_dir=None,
+                 is_pre_load=False,
+                 is_shuffle=False,
+                 is_aug=False):
         assert len(data_suffix) > 0, 'Empty suffix!'
         self._org_suffix = data_suffix[0]
         self._other_suffix = data_suffix[1:]
@@ -60,7 +63,7 @@ class DataProvider:
         self._temp_dir = temp_dir
         self._is_aug = is_aug
         self._processor = processor
-        
+
         self._file_list = None
         self._all_data = None
         if type(data) is str:
@@ -77,7 +80,7 @@ class DataProvider:
             if is_pre_load:
                 self._all_data = self._load_data(len(self._file_list))
             elif self._temp_dir is not None:
-                self._build_temp_folder()         
+                self._build_temp_folder()
 
     def __call__(self, n):
         """Require images.
@@ -104,15 +107,15 @@ class DataProvider:
         """
         data_dict = {}
         if self._all_data is not None:
-            idx_list = np.array(range(self._cur_i, self._cur_i+n)) % len(self._file_list)
+            idx_list = np.array(range(self._cur_i, self._cur_i + n)) % len(self._file_list)
             for key in self._all_data:
                 data_dict.update({key: self._all_data[key][idx_list]})
             self._next_idx(n)
         elif self._temp_dir is not None:
             data_dict.update(self._load_temp_file(n))
         else:
-            data_dict.update(self._load_data(n))  
-        return data_dict 
+            data_dict.update(self._load_data(n))
+        return data_dict
 
     @property
     def size(self):
@@ -148,12 +151,18 @@ class DataProvider:
             sub_data_dict.update({self._org_suffix: L.load_file(x_name)})
 
             for o_suffix in self._other_suffix:
+                if o_suffix == "_lab.txt":
+                    if os.path.exists(x_name.replace(self._org_suffix, o_suffix)):
+                        text_labels = np.genfromtxt(x_name.replace(self._org_suffix, o_suffix), dtype='int')
+                    else:
+                        text_labels = np.zeros(11, dtype='int')
+                    sub_data_dict["_lab.txt"] = text_labels
+                    continue
                 o_name = x_name.replace(self._org_suffix, o_suffix)
                 sub_data_dict.update({o_suffix: L.load_file(o_name)})
 
             # augmentation
             if self._is_aug:
-
 
                 shift_deg1 = random.randint(-10, 10)
                 shift_deg2 = random.randint(-5, 5)
@@ -161,19 +170,18 @@ class DataProvider:
 
                 sc_value_z = random.uniform(0.75, 1.20)
 
-
-                AXES = [ (0, 1), (1, 2), (0, 2)]
+                AXES = [(0, 1), (1, 2), (0, 2)]
                 # AXES = [(0, 1)]
                 a = random.choice(AXES)
 
-                if (a==(1, 2)):
+                if (a == (1, 2)):
                     rotate_deg = random.randint(-25, 25)
                 else:
                     rotate_deg = random.randint(-15, 15)
 
-                sub_data_dict[self._org_suffix] = self.rotation(sub_data_dict[self._org_suffix] , 'img', rotate_deg, shift_deg1, shift_deg2, shift_deg3, a, sc_value_z)
+                sub_data_dict[self._org_suffix] = self.rotation(sub_data_dict[self._org_suffix], 'img', rotate_deg, shift_deg1, shift_deg2, shift_deg3, a, sc_value_z)
                 if len(self._other_suffix) > 0:
-                    sub_data_dict[self._other_suffix[0]] = self.rotation(sub_data_dict[self._other_suffix[0]], 'msk', rotate_deg,  shift_deg1, shift_deg2, shift_deg3, a, sc_value_z)
+                    sub_data_dict[self._other_suffix[0]] = self.rotation(sub_data_dict[self._other_suffix[0]], 'msk', rotate_deg, shift_deg1, shift_deg2, shift_deg3, a, sc_value_z)
             # process
             if self._processor is not None:
                 sub_data_dict = self._processor.pre_process(sub_data_dict)
@@ -181,14 +189,13 @@ class DataProvider:
             # if self._is_aug and len(self._other_suffix) > 0:
             #     sub_data_dict[self._other_suffix[0]] = self.rotation(sub_data_dict[self._other_suffix[0]], 'msk', rotate_deg, shift_deg, translation_matrix)
 
-            data_dict = U.dict_append(data_dict, sub_data_dict) 
+            data_dict = U.dict_append(data_dict, sub_data_dict)
             self._next_idx()
         U.dict_list2arr(data_dict)
         return data_dict
 
     def rotation(self, x, flag, rotate_deg, shift_deg1, shift_deg2, shift_deg3, a, sc_value_z):
         # np.random.seed(seed)
-
 
         if (flag == 'img'):
             _x = ndimage.rotate(x, rotate_deg, a, reshape=False, prefilter=True, order=1)
@@ -200,31 +207,31 @@ class DataProvider:
             _x = ndimage.rotate(x, rotate_deg, a, reshape=False, prefilter=True, order=0, mode='nearest')
 
         if (flag == 'img'):
-           # _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=1)
-           _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=1)
+            # _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=1)
+            _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=1)
         if (flag == 'msk'):
-        #    # _, _, _, channels = _x.shape
-        #    # _x = [ndimage.shift(_x[..., c], shift_deg, order=0, mode='nearest')
-        #    #       for c in range(channels)]
-        #    # _x = np.stack(_x, axis=-1)
-        #    # _x = np.round(_x)
-        #
-        #    # _x[0:1,:, :] = 0
-        #    # _x[125:127, :, :] = 0
-        #    # _x[:,0:1,:] = 0
-        #    # _x[:,62:63, :] = 0
-        #    _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=0)
-             _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=0)
+            #    # _, _, _, channels = _x.shape
+            #    # _x = [ndimage.shift(_x[..., c], shift_deg, order=0, mode='nearest')
+            #    #       for c in range(channels)]
+            #    # _x = np.stack(_x, axis=-1)
+            #    # _x = np.round(_x)
+            #
+            #    # _x[0:1,:, :] = 0
+            #    # _x[125:127, :, :] = 0
+            #    # _x[:,0:1,:] = 0
+            #    # _x[:,62:63, :] = 0
+            #    _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=0)
+            _x = ndimage.shift(_x, [shift_deg1, shift_deg2, shift_deg3], order=0)
 
         # if (flag == 'img'):
         #    _x = ndimage.zoom(_x, 1.5, order=3)
         # if (flag == 'msk'):
         #     _x = ndimage.zoom(_x, 1.5, order=0)
-        _x = self.clipped_zoom(_x,sc_value_z, flag)
+        _x = self.clipped_zoom(_x, sc_value_z, flag)
         # _x = self.clipped_zoom(_x, sc_value_zin, flag)
         return _x
 
-    def clipped_zoom(self, img, zoom_factor, flag ,**kwargs):
+    def clipped_zoom(self, img, zoom_factor, flag, **kwargs):
 
         h, w = img.shape[:2]
 
@@ -259,7 +266,7 @@ class DataProvider:
             left = (w - zw) // 2
 
             if (flag == 'msk'):
-                out = zoom(img[top:top + zh, left:left + zw], zoom_tuple,order=0, **kwargs)
+                out = zoom(img[top:top + zh, left:left + zw], zoom_tuple, order=0, **kwargs)
             if (flag == 'img'):
                 out = zoom(img[top:top + zh, left:left + zw], zoom_tuple, order=1, **kwargs)
             # `out` might still be slightly larger than `img` due to rounding, so
@@ -273,12 +280,11 @@ class DataProvider:
             out = img
         return out
 
-
     def _build_temp_folder(self):
         self._temp_dir += '/temp' + time.strftime('%Y%m%d-%H%M%S-') + str(time.time()).split('.')[-1]
         print('Building temp folder \'{}\' ...'.format(self._temp_dir))
         # temp_dir = tempfile.TemporaryDirectory()
-        
+
         if os.path.exists(self._temp_dir):
             shutil.rmtree(self._temp_dir, ignore_errors=True)
         os.makedirs(self._temp_dir)
@@ -290,7 +296,7 @@ class DataProvider:
             np.save(temp_filepath, data_dict)
         self._file_list = new_filelist
         print('Processed temp files were saved.')
-    
+
     def _load_temp_file(self, n):
         assert self._temp_dir is not None, 'Temp dir is None'
         assert os.path.exists(self._temp_dir), 'Can\'t find temp directory \'{}\''.format(self._temp_dir)
@@ -299,9 +305,9 @@ class DataProvider:
             temp_filename = self._file_list[self._cur_i]
             sub_data_dict = np.load(temp_filename, allow_pickle='TRUE').item()
             self._next_idx()
-            data_dict = U.dict_concat(data_dict, sub_data_dict) 
+            data_dict = U.dict_concat(data_dict, sub_data_dict)
         return data_dict
-            
+
     def _next_idx(self, n=1):
         """Cycle index.
         Parameters

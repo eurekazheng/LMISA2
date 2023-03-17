@@ -1,5 +1,6 @@
-from abc import ABCMeta,abstractmethod
+from abc import ABCMeta, abstractmethod
 from utils import process_methods as M
+
 
 class Processor(metaclass=ABCMeta):
     """Interface for Processor
@@ -19,8 +20,7 @@ class Processor(metaclass=ABCMeta):
             Dictionary for all the data after processing.
             Size won't change if no resize operation.
         """
-        
-    
+
     @abstractmethod
     def post_process(self, data_dict):
         """Abstract method, need to be inherited for post-processing.
@@ -75,29 +75,29 @@ class SimpleImageProcessor(Processor):
             (custom_method, **kwargs): This class allow user use custom method. User can 
                                        put method and its arguments in a list. The processor 
                                        will process the data according to this method.
-    
+
     _post: TODO
 
     _mdict: dict
             A dictionary for methods. Key are names of method, values are the corresponding functions. 
 
-    
+
     """
+
     def __init__(self, pre=None, post=None):
         self._pre = pre
         self._post = post
         self._mdict = {
-                    'min-max': M.min_max,
-                    'zero-mean': M.zero_mean,
-                    'median-mean': M.median_mean,
-                    'one-hot': M.one_hot,
-                    'rgb2gray': M.rgb2gray,
-                    'resize2d': M.resize2d,
-                    'resize3d': M.resize3d,
-                    'channelcheck': M.channel_check
-                    #TODO new method add here
+            'min-max': M.min_max,
+            'zero-mean': M.zero_mean,
+            'median-mean': M.median_mean,
+            'one-hot': M.one_hot,
+            'rgb2gray': M.rgb2gray,
+            'resize2d': M.resize2d,
+            'resize3d': M.resize3d,
+            'channelcheck': M.channel_check
+            # TODO new method add here
         }
-
 
     def pre_process(self, data_dict):
         """A basic pre processing pipline. TODO: Modify as required
@@ -118,12 +118,14 @@ class SimpleImageProcessor(Processor):
             return data_dict
 
         for key in self._pre:
+            if key == "_lab.txt":
+                continue
             for augm in self._pre[key]:
                 if key in data_dict:
                     item = data_dict[key]
                     new_item = self._process(item, augm)
                     data_dict.update({key: new_item})
-        
+
         return data_dict
 
     def post_process(self, data_dict):

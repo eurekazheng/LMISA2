@@ -7,14 +7,18 @@ from scipy import ndimage
 import random
 
 # Normalization---------------------------------------
+
+
 def min_max(x, min, max):
     _x = (x - min) / (max - min)
     return _x
+
 
 def zero_mean(x):
     # x = np.clip(x, 0, 800)
     _x = (x - np.mean(x)) / np.std(x)
     return _x
+
 
 def median_mean(x):
     _x = (x - np.median(x)) / np.std(x)
@@ -22,6 +26,8 @@ def median_mean(x):
 # ----------------------------------------------------
 
 # Label-----------------------------------------------
+
+
 def one_hot(x, n_class, masked=True):
     if type(n_class) is int:
         class_interval = (np.max(x) - np.min(x)) / (n_class - 1)
@@ -40,6 +46,7 @@ def one_hot(x, n_class, masked=True):
         raise Exception('Wrong type of n_class.')
     return x_
 
+
 def channel_check(x, n_channel):
     _x = x
     if not x.shape:
@@ -52,20 +59,23 @@ def channel_check(x, n_channel):
 # ----------------------------------------------------
 
 
-
 # Image-----------------------------------------------
 def rgb2gray(x):
     # x = x[..., :3]
-    assert x.shape[-1] == 3, 'Not RGB image!'
+    # assert x.shape[-1] == 3, 'Not RGB image!'
     # if x.shape[-1] > 1:
-    _x = np.dot(x[...,:3], [0.299, 0.587, 0.114])
-    return _x
+    if len(x.shape) > 2:
+        x = np.dot(x[..., :3], [0.299, 0.587, 0.114])
+    # _x = np.dot(x[..., :3], [0.299, 0.587, 0.114])
+    return x
+
 
 def resize2d(x, new_size):
     if new_size is None:
         return x
     _x = cv2.resize(x, new_size[::-1])
     return _x
+
 
 def resize3d(x, new_size):
     if new_size is None:
@@ -78,8 +88,9 @@ def resize3d(x, new_size):
     assert np.all(_x.shape[0:3] == np.array(new_size)), 'Fail to resize 3d image: expect {}, got {}.'.format(new_size, _x.shape[0:3])
     return _x
 
+
 def dencecrf(x, y, nlabels, w1, w2, alpha, beta, gamma, iteration=5):
-    
+
     _x = np.array(x)
     _y = np.array(y, np.float32)
 
@@ -87,29 +98,27 @@ def dencecrf(x, y, nlabels, w1, w2, alpha, beta, gamma, iteration=5):
     assert _y.shape[-1] == nlabels, 'Expect y.shape (...,{}), got {}'.format(nlabels, _y.shape)
 
     _y = _y.reshape((-1, nlabels))
-    _y = np.transpose(_y, (1,0))
+    _y = np.transpose(_y, (1, 0))
 
     d = dcrf.DenseCRF(np.prod(_x.shape[0:-1]), nlabels)
     d.setUnaryEnergy(_y.copy(order='C'))
 
-    imgdim = len(_x.shape)-1
+    imgdim = len(_x.shape) - 1
 
     gamma = (gamma,) * imgdim
     alpha = (alpha,) * imgdim
     beta = (beta,) * _x.shape[-1]
 
-    featG = create_pairwise_gaussian(gamma, _x.shape[0:-1]) # g
-    featB = create_pairwise_bilateral(alpha, beta, _x, imgdim) #a b
+    featG = create_pairwise_gaussian(gamma, _x.shape[0:-1])  # g
+    featB = create_pairwise_bilateral(alpha, beta, _x, imgdim)  # a b
 
-    d.addPairwiseEnergy(featG, w2) # w2
-    d.addPairwiseEnergy(featB, w1) # w1
+    d.addPairwiseEnergy(featG, w2)  # w2
+    d.addPairwiseEnergy(featB, w1)  # w1
 
     out = d.inference(iteration)
-    out = np.transpose(out, (1,0))
+    out = np.transpose(out, (1, 0))
     out = np.reshape(out, y.shape)
 
     return out
 
 # ----------------------------------------------------
-
-

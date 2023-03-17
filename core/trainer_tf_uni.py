@@ -3,8 +3,8 @@ import time
 import shutil
 import numpy as np
 import tensorflow as tf
-from utils import util_latent as UL
-from utils import util as U
+import utils.util_latent as UL
+import utils.util as U
 from utils.eval_saver import save_str, save_img
 import nibabel as nib
 import scipy
@@ -15,6 +15,8 @@ from scipy import ndimage, misc
 from volumentations import *
 from utils.process_methods import one_hot, min_max, channel_check, zero_mean
 import nibabel as nib
+
+
 class Trainer:
     def __init__(self, model):
         self.model = model
@@ -47,11 +49,11 @@ class Trainer:
             learning_rate = optimizer.learning_rate.numpy()
         if type(learning_rate) is not list:
             learning_rate = [learning_rate]
-        iters = (train_provider_CT.size + train_provider_MRI.size) / (batch_size*2)
+        iters = (train_provider_CT.size + train_provider_MRI.size) / (batch_size * 2)
         # iters = 160
         assert iters > 0 and iters % 1 == 0, 'batch size {} does not match the data size {}.'.format(batch_size,
                                                                                                      (
-                                                                                                     train_provider_CT.size + train_provider_MRI.size))
+                                                                                                         train_provider_CT.size + train_provider_MRI.size))
         mini_batch_size = batch_size if mini_batch_size is None else mini_batch_size
         mini_iters = batch_size / mini_batch_size
         assert mini_iters > 0 and mini_iters % 1 == 0, 'mini batch size {} does not match the batch size {}.'.format(
@@ -68,7 +70,7 @@ class Trainer:
 
         print(
             'Start training: epochs {}, learning rate {}, batch size {}, mini-batch size {}, training data {}, validation data {}.'
-            .format(epochs, [str(lr) for lr in learning_rate], batch_size, mini_batch_size, (train_provider_CT.size + train_provider_MRI.size) ,(validation_provider_CT.size+ validation_provider_MRI.size)))
+            .format(epochs, [str(lr) for lr in learning_rate], batch_size, mini_batch_size, (train_provider_CT.size + train_provider_MRI.size), (validation_provider_CT.size + validation_provider_MRI.size)))
 
         train_eval_str = {}
         valid_eval_str = {}
@@ -76,7 +78,7 @@ class Trainer:
         time_start = time.time()
         org_suffix = '_img.nii.gz'
         lab_suffix = '_lab.nii.gz'
-        #with strategy.scope():
+        # with strategy.scope():
         for ep in range(epochs):
             ep_time_start = time.time()
             for _ in range(int(iters)):
@@ -117,7 +119,7 @@ class Trainer:
             ep_train_time = time.time() - ep_time_start
             ep_eval_time = 0
             if ep % eval_frequency == 0 or ep == epochs - 1:
-                ep_train_eval = self.eval(train_provider_CT_w, train_provider_MRI_w ,train_provider_CT_t_w, batch_size=mini_batch_size, print_str=False,
+                ep_train_eval = self.eval(train_provider_CT_w, train_provider_MRI_w, train_provider_CT_t_w, batch_size=mini_batch_size, print_str=False,
                                           need_imgs=is_save_train_imgs)
                 ep_valid_eval = self.eval(validation_provider_CT, validation_provider_MRI, validation_provider_CT_t, batch_size=mini_batch_size, print_str=False,
                                           need_imgs=is_save_valid_imgs)
@@ -138,11 +140,11 @@ class Trainer:
 
                     # time_ep_save_imgs_end = time.time()
             train_log = (
-            'epoch {} ------ time cost: overall {:.1f} ------ step training {:.1f} ------ step evaluation {:.1f} ------ learning rate: {} ------'
-            .format(ep, time.time() - time_start, ep_train_time, ep_eval_time, [str(lr) for lr in learning_rate]))
+                'epoch {} ------ time cost: overall {:.1f} ------ step training {:.1f} ------ step evaluation {:.1f} ------ learning rate: {} ------'
+                .format(ep, time.time() - time_start, ep_train_time, ep_eval_time, [str(lr) for lr in learning_rate]))
 
             if ep % eval_frequency == 0 or ep == epochs - 1:
-                train_log += ('\n  train      : {}'.format(U.dict_to_str(ep_train_eval)) + \
+                train_log += ('\n  train      : {}'.format(U.dict_to_str(ep_train_eval)) +
                               '\n  validation : {}'.format(U.dict_to_str(ep_valid_eval)))
 
             print(train_log)
@@ -179,10 +181,9 @@ class Trainer:
         #     tmp_img_tr = np.expand_dims(tmp_img_tr, -1)
         #     img_tr = tmp_img_tr if img_tr is None else np.concatenate((img_tr, tmp_img_tr), -1)
 
-
         z[org_suffix] = img
 
-        return  z
+        return z
 
     def data_augmentation2_lab(self, z):
         org_suffix = 'image'
@@ -201,7 +202,7 @@ class Trainer:
         axes_random_id = np.random.randint(low=0, high=len(all_axes))
         axes = all_axes[axes_random_id]
         img = scipy.ndimage.rotate(image, angle, axes=axes, reshape=False)
-        msk  = scipy.ndimage.rotate(mask, angle, axes=axes, mode = 'nearest' , reshape=False)
+        msk = scipy.ndimage.rotate(mask, angle, axes=axes, mode='nearest', reshape=False)
 
         # for i in range(0, image.shape[2]):
         #     tmp_img_tr = cv2.resize(img [..., i], (width, height), interpolation=cv2.INTER_CUBIC)
@@ -212,11 +213,11 @@ class Trainer:
         #     m1_ = np.expand_dims(m1_, -1)
         #     m1 = m1_ if m1 is None else np.concatenate((m1, m1_), -1)
 
-
         z[org_suffix] = img
         z[lab_suffix] = msk
 
         return z
+
     def data_augmentation1_org(self, z):
         org_suffix = 'image'
         image = z[org_suffix]
@@ -229,15 +230,15 @@ class Trainer:
 
         z[org_suffix] = self.transform_matrix_offset_center_3d_img(image, d1, d2, d3)
 
-        return  z
+        return z
 
     def transform_matrix_offset_center_3d_img(self, matrix, x, y, z):
         offset_matrix = np.array([[1, 0, 0, x], [0, 1, 0, y], [0, 0, 1, z], [0, 0, 0, 1]])
-        return ndimage.interpolation.affine_transform(matrix, offset_matrix , mode = 'nearest')
+        return ndimage.interpolation.affine_transform(matrix, offset_matrix, mode='nearest')
 
     def transform_matrix_offset_center_3d_lb(self, matrix, x, y, z):
         offset_matrix = np.array([[1, 0, 0, x], [0, 1, 0, y], [0, 0, 1, z], [0, 0, 0, 1]])
-        return ndimage.interpolation.affine_transform(matrix, offset_matrix, mode = 'nearest')
+        return ndimage.interpolation.affine_transform(matrix, offset_matrix, mode='nearest')
 
     def data_augmentation1_lab(self, z):
         org_suffix = 'image'
@@ -246,11 +247,8 @@ class Trainer:
         imag = z[lab_suffix]
         mask = imag
 
-
         imag = z[org_suffix]
         image = imag
-
-
 
         max_percentage = 0.2
         dim1, dim2, dim3 = image.shape
@@ -263,7 +261,6 @@ class Trainer:
         z[org_suffix] = self.transform_matrix_offset_center_3d_img(image, d1, d2, d3)
 
         return z
-
 
     def data_augmentation3(self, x, y, z):
         org_suffix = '_img.nii.gz'
@@ -287,7 +284,7 @@ class Trainer:
 
         seq = iaa.Sequential(
             [iaa.Affine(translate_px={"x": (-40, 40)})
-                 ],
+             ],
             random_order=True
         )
         seq.deterministic = True
@@ -332,9 +329,9 @@ class Trainer:
         batch_size = kwargs.get('batch_size', 1)
         print_str = kwargs.get('print_str', True)
         need_imgs = kwargs.get('need_imgs', False)
-        if type(data_in_CT ) is dict:
+        if type(data_in_CT) is dict:
             time_start = time.time()
-            eval_dict = self.model.eval(data_in_CT, data_in_MRI ,data_in_CT_lab, **kwargs)
+            eval_dict = self.model.eval(data_in_CT, data_in_MRI, data_in_CT_lab, **kwargs)
             time_cost = time.time() - time_start
             if print_str:
                 print('Evaluation time cost is {:.1f}'.format(time_cost))
@@ -342,8 +339,8 @@ class Trainer:
 
         # data_provider = U.dict_concat(data_in_CT, data_in_MRI)
         ndata = (data_in_CT.size + data_in_MRI.size)
-        m = ndata // (batch_size *2)
-        n = ndata % (batch_size *2)
+        m = ndata // (batch_size * 2)
+        n = ndata % (batch_size * 2)
         results = {}
         imgs1 = {}
         imgs2 = {}
@@ -360,7 +357,7 @@ class Trainer:
             #feed_dict_MRI = self.data_augmentation1_org(feed_dict_MRI)
             #feed_dict_CT_lab = self.data_augmentation1_org_lab(feed_dict_CT_lab)
 
-            sub_results = self.model.eval(data_in_CT(batch_size), data_in_MRI(batch_size),data_in_CT_lab(batch_size), **kwargs)
+            sub_results = self.model.eval(data_in_CT(batch_size), data_in_MRI(batch_size), data_in_CT_lab(batch_size), **kwargs)
             sub_imgs1 = sub_results.pop('imgs1') if 'imgs1' in sub_results else None
             sub_imgs2 = sub_results.pop('imgs2') if 'imgs2' in sub_results else None
             results = U.dict_concat(results, sub_results)
@@ -370,7 +367,7 @@ class Trainer:
             if print_str:
                 print('evalated {} data'.format(batch_size * (i + 1)))
         if n > 0:
-            sub_results = self.model.eval(data_in_CT(n), data_in_MRI(n),data_in_CT_lab(n),  **kwargs)
+            sub_results = self.model.eval(data_in_CT(n), data_in_MRI(n), data_in_CT_lab(n), **kwargs)
             sub_imgs1 = sub_results.pop('imgs1') if 'imgs1' in sub_results else None
             sub_imgs2 = sub_results.pop('imgs2') if 'imgs2' in sub_results else None
             results = U.dict_concat(results, sub_results)
@@ -391,17 +388,17 @@ class Trainer:
         batch_size = kwargs.get('batch_size', 30)
         print_str = kwargs.get('print_str', True)
         need_imgs = kwargs.get('need_imgs', False)
-        if type(data_in_CT ) is dict:
+        if type(data_in_CT) is dict:
             time_start = time.time()
             eval_dict = self.model.eval_test(data_in_CT, **kwargs)
             time_cost = time.time() - time_start
-            #if print_str:
-                #print('Evaluation time cost is {:.1f}'.format(time_cost))
+            # if print_str:
+            #print('Evaluation time cost is {:.1f}'.format(time_cost))
             return eval_dict
 
         # data_provider = U.dict_concat(data_in_CT, data_in_MRI)
-        ndata = (data_in_CT.size )
-        m = ndata // (batch_size )
+        ndata = (data_in_CT.size)
+        m = ndata // (batch_size)
         n = ndata % (batch_size)
         results = {}
         imgs1 = {}
@@ -420,7 +417,7 @@ class Trainer:
             if print_str:
                 print('evalated {} data'.format(batch_size * (i + 1)))
         if n > 0:
-            sub_results = self.model.eval_test_(data_in_CT(n),  **kwargs)
+            sub_results = self.model.eval_test_(data_in_CT(n), **kwargs)
             sub_imgs1 = sub_results.pop('imgs1') if 'imgs1' in sub_results else None
             sub_imgs2 = sub_results.pop('imgs2') if 'imgs2' in sub_results else None
             results = U.dict_concat(results, sub_results)
@@ -437,22 +434,21 @@ class Trainer:
         else:
             return results
 
-
     def eval_test(self, data_in_CT, **kwargs):
         batch_size = kwargs.get('batch_size', 30)
         print_str = kwargs.get('print_str', True)
         need_imgs = kwargs.get('need_imgs', False)
-        if type(data_in_CT ) is dict:
+        if type(data_in_CT) is dict:
             time_start = time.time()
             eval_dict = self.model.eval_test(data_in_CT, **kwargs)
             time_cost = time.time() - time_start
-            #if print_str:
-                #print('Evaluation time cost is {:.1f}'.format(time_cost))
+            # if print_str:
+            #print('Evaluation time cost is {:.1f}'.format(time_cost))
             return eval_dict
 
         # data_provider = U.dict_concat(data_in_CT, data_in_MRI)
-        ndata = (data_in_CT.size )
-        m = ndata // (batch_size )
+        ndata = (data_in_CT.size)
+        m = ndata // (batch_size)
         n = ndata % (batch_size)
         results = {}
         imgs1 = {}
@@ -471,7 +467,7 @@ class Trainer:
             if print_str:
                 print('evalated {} data'.format(batch_size * (i + 1)))
         if n > 0:
-            sub_results = self.model.eval_test(data_in_CT(n),  **kwargs)
+            sub_results = self.model.eval_test(data_in_CT(n), **kwargs)
             sub_imgs1 = sub_results.pop('imgs1') if 'imgs1' in sub_results else None
             sub_imgs2 = sub_results.pop('imgs2') if 'imgs2' in sub_results else None
             results = U.dict_concat(results, sub_results)
@@ -487,6 +483,7 @@ class Trainer:
             return results, imgs1, imgs2
         else:
             return results
+
     def predict(self, data_in, batch_size=1):
         if type(data_in) is dict:
             time_start = time.time()
@@ -508,7 +505,6 @@ class Trainer:
             predictions = np.concatenate((predictions, sub_predictions),
                                          0) if predictions is not None else sub_predictions
         return predictions
-
 
     def predict_test(self, data_in, batch_size=1):
         if type(data_in) is dict:
@@ -562,4 +558,3 @@ class Trainer:
                         if sub_grads[i] is not None:
                             sub_grads[i] /= n
         return grads
-

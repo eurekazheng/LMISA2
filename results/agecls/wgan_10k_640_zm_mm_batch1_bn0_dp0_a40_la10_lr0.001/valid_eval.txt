@@ -1,4 +1,0 @@
-0: loss: 42.1001   gen_loss: 0.0339   disc_loss: 3.8991   gen_mse: 0.2914   seg_loss: 0.7603   latent_loss: 0.0000   dice: 0.2542 0.3485   precision: 0.8141 0.2182   recall: 0.1506 0.8733   iou: 0.1456 0.2116   
-1: loss: 39.2640   gen_loss: 0.1096   disc_loss: 0.1428   gen_mse: 0.2453   seg_loss: 0.7336   latent_loss: 0.0000   dice: 0.5442 0.4201   precision: 0.9168 0.2777   recall: 0.3870 0.8691   iou: 0.3739 0.2670   
-0: loss: 35.2335   gen_loss: 0.0159   disc_loss: 3.8059   gen_mse: 0.3067   seg_loss: 0.5738   latent_loss: 0.0000   dice: 0.8580 0.2018   precision: 0.7984 0.3463   recall: 0.9275 0.1425   iou: 0.7515 0.1123   
-1: loss: 29.5067   gen_loss: 0.0583   disc_loss: 0.0838   gen_mse: 0.2210   seg_loss: 0.5152   latent_loss: 0.0000   dice: 0.8668 0.2135   precision: 0.8018 0.4085   recall: 0.9437 0.1446   iou: 0.7651 0.1200   
